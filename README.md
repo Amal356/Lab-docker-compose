@@ -110,4 +110,4 @@ docker-compose ps
 *(Résultat attendu : L'état `Up (healthy)` pour les 3 conteneurs après environ 10-30 secondes).*
 
 ## Capture d'Écrans
-*Vous pouvez rajouter vos captures d'écrans dans le dossier `/screenshots/` comme exigé pour valider le rapport du laboratoire.*
+ captures d'écrans dans le dossier `/screenshots/`

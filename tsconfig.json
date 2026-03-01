@@ -1,5 +1,5 @@
 {
-  "include": ["client/src/**/*", "backend/shared/**/*", "backend/server/**/*"],
+  "include": ["frontend/src/**/*", "backend/shared/**/*", "backend/server/**/*"],
   "exclude": ["node_modules", "build", "dist", "**/*.test.ts"],
   "compilerOptions": {
     "incremental": true,
@@ -16,7 +16,7 @@
     "baseUrl": ".",
     "types": ["node", "vite/client"],
     "paths": {
-      "@/*": ["./client/src/*"],
+      "@/*": ["./frontend/src/*"],
       "@shared/*": ["./backend/shared/*"]
     }
   }

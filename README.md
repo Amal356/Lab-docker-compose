@@ -5,9 +5,9 @@ Ce dépôt contient le code source et la configuration Docker pour une applicati
 ## Architecture
 
 L'application est divisée en 3 services principaux :
-1. **Frontend** : React (Vite) servi via Nginx sur le port 8080. L'image utilise un build multi-stage (builder Node, serveur Nginx). Nginx est configuré pour agir comme un reverse proxy (`/api` vers le backend).
+1. **Frontend** : React (Vite) servi via Nginx sur le port 80. L'image utilise un build multi-stage (builder Node, serveur Nginx). Nginx est configuré pour agir comme un reverse proxy (`/api` vers le backend).
 2. **Backend** : Node.js (Express) sur le port 5000. Il utilise un build multi-stage avec une image Alpine de production allégée et s'exécute en tant qu'utilisateur non-root.
-3. **Database** : PostgreSQL 15. Configuré avec un volume persistant et un script d'initialisation (`init.sql`).
+3. **Base (Database)** : PostgreSQL 15. Configuré avec un volume persistant et un script d'initialisation (`init.sql`).
 
 Les réseaux sont segmentés (`frontend-net` et `backend-net`) pour garantir qu'aucune communication directe n'est possible entre le frontend et la base de données (principe de moindre privilège).
 
@@ -57,7 +57,22 @@ Le backend se connectera désormais directement à votre base de données locale
    ```bash
    docker-compose up -d --build
    ```
-3. L'application (frontend) est disponible sur : [http://localhost:8080](http://localhost:8080)
+3. L'application (frontend) est disponible sur : [http://localhost](http://localhost)
+
+## Questions de Réflexion (Partie 2.1 du TP)
+
+### 1. Pourquoi utiliser un multi-stage build plutôt qu'un Dockerfile simple ?
+Le multi-stage build permet de séparer l'environnement de construction (compilation, installation des dépendances de développement) de l'environnement d'exécution final. Cela permet d'obtenir une image de production propre et optimisée.
+
+### 2. Quels sont les avantages en termes de taille d'image ?
+Cela réduit considérablement la taille de l'image finale car elle ne contient que les artefacts nécessaires à l'exécution (fichiers compilés, dépendances de production) et non les outils de build (SDK, compilateurs, cache de gestionnaire de paquets).
+
+### 3. Comment cela améliore-t-il la sécurité ?
+En éliminant les outils de développement (compilateurs, shells, gestionnaires de paquets) de l'image finale, on réduit la surface d'attaque. De plus, cela évite de laisser des secrets ou des clés SSH utilisés pendant le build dans les couches de l'image de production.
+
+### 4. Que contient chaque stage et pourquoi ?
+- **Stage 1 (Builder)** : Contient l'image de base complète (Node.js full), le code source, et toutes les dépendances. Il sert à compiler l'application.
+- **Stage 2 (Production)** : Contient une image de base minimale (Alpine), les fichiers compilés (`dist/`), et uniquement les dépendances nécessaires au runtime. Il sert à exécuter l'application de manière sécurisée et légère.
 
 ## Tests et Validation (Partie 6 du TP)
 
@@ -78,7 +93,7 @@ docker exec -it task_frontend wget -qO- http://backend:5000/health
 Vous pouvez également tester les endpoints API (ex: GET `/api/tasks`).
 
 ### Test 3 : Frontend
-L'interface est accessible sur le port 8080. Le routage fonctionne (grâce à Nginx) et les appels API (fetch via `/api/...`) sont automatiquement redirigés vers le backend. Vous pouvez tester la création, lecture, modification et suppression des tâches via le navigateur.
+L'interface est accessible sur le port 80. Le routage fonctionne (grâce à Nginx) et les appels API (fetch via `/api/...`) sont automatiquement redirigés vers le backend. Vous pouvez tester la création, lecture, modification et suppression des tâches via le navigateur.
 
 ### Test 4 : Isolation Réseau
 Le frontend (sur `frontend-net`) n'a pas accès à la base de données (sur `backend-net`).
@@ -98,8 +113,9 @@ Le volume Docker nommé `task-db-data` garantit la persistance.
 ### Test 6 : Limites de Ressources
 Vous pouvez vérifier les contraintes CPU/Mémoire définies pour chaque service (0.5/0.25 core et RAM) :
 ```bash
-docker stats --no-stream
+docker stats
 ```
+*(Résultat attendu : affichage des limites CPU et MEM LIMIT conformes au docker-compose.yml).*
 
 ### Test 7 : Health Checks
 Les 3 conteneurs possèdent des healthchecks configurés (PostgreSQL nativement, et wget pour le backend/frontend).

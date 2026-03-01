@@ -5,9 +5,9 @@ Ce dépôt contient le code source et la configuration Docker pour une applicati
 ## Architecture
 
 L'application est divisée en 3 services principaux :
-1. **Frontend** : React (Vite) servi via Nginx sur le port 80. L'image utilise un build multi-stage (builder Node, serveur Nginx). Nginx est configuré pour agir comme un reverse proxy (`/api` vers le backend).
-2. **Backend** : Node.js (Express) sur le port 5000. Il utilise un build multi-stage avec une image Alpine de production allégée et s'exécute en tant qu'utilisateur non-root.
-3. **Base (Database)** : PostgreSQL 15. Configuré avec un volume persistant et un script d'initialisation (`init.sql`).
+1. **Frontend** : React (Vite) servi via Nginx sur le port 8080 de l'hôte. L'image utilise un build multi-stage (builder Node, serveur Nginx). Nginx est configuré pour agir comme un reverse proxy (`/api` vers le backend).
+2. **Backend** : Node.js (Express) sur le port 5000. Il utilise un build multi-stage avec une image Alpine de production allégée et s'exécute en tant qu'utilisateur non-root. Il dépend du service `database`.
+3. **Base (Database)** : PostgreSQL 15. Configuré avec un volume persistant nommé `taskmanager-data` et un script d'initialisation (`init.sql`).
 
 Les réseaux sont segmentés (`frontend-net` et `backend-net`) pour garantir qu'aucune communication directe n'est possible entre le frontend et la base de données (principe de moindre privilège).
 
@@ -57,7 +57,7 @@ Le backend se connectera désormais directement à votre base de données locale
    ```bash
    docker-compose up -d --build
    ```
-3. L'application (frontend) est disponible sur : [http://localhost](http://localhost)
+3. L'application (frontend) est disponible sur : [http://localhost:8080](http://localhost:8080)
 
 ## Questions de Réflexion (Partie 2.1 du TP)
 
@@ -93,7 +93,7 @@ docker exec -it task_frontend wget -qO- http://backend:5000/health
 Vous pouvez également tester les endpoints API (ex: GET `/api/tasks`).
 
 ### Test 3 : Frontend
-L'interface est accessible sur le port 80. Le routage fonctionne (grâce à Nginx) et les appels API (fetch via `/api/...`) sont automatiquement redirigés vers le backend. Vous pouvez tester la création, lecture, modification et suppression des tâches via le navigateur.
+L'interface est accessible sur le port 8080. Le routage fonctionne (grâce à Nginx) et les appels API (fetch via `/api/...`) sont automatiquement redirigés vers le backend. Vous pouvez tester la création, lecture, modification et suppression des tâches via le navigateur.
 
 ### Test 4 : Isolation Réseau
 Le frontend (sur `frontend-net`) n'a pas accès à la base de données (sur `backend-net`).
@@ -104,7 +104,7 @@ docker exec -it task_frontend ping database
 *(Résultat attendu : `ping: bad address 'database'` car la résolution DNS échoue, confirmant l'isolation).*
 
 ### Test 5 : Persistance des Données
-Le volume Docker nommé `task-db-data` garantit la persistance.
+Le volume Docker nommé `taskmanager-data` garantit la persistance.
 1. Ajoutez une tâche depuis l'interface web.
 2. Arrêtez les conteneurs : `docker-compose down`
 3. Redémarrez : `docker-compose up -d`
@@ -118,12 +118,26 @@ docker stats
 *(Résultat attendu : affichage des limites CPU et MEM LIMIT conformes au docker-compose.yml).*
 
 ### Test 7 : Health Checks
-Les 3 conteneurs possèdent des healthchecks configurés (PostgreSQL nativement, et wget pour le backend/frontend).
-Vérifiez leur état :
-```bash
-docker-compose ps
-```
-*(Résultat attendu : L'état `Up (healthy)` pour les 3 conteneurs après environ 10-30 secondes).*
+- Vérifier que tous les conteneurs passent à l'état "healthy" (`docker-compose ps`).
+- Tester l'arrêt de la base de données et observer le changement d'état.
 
-## Capture d'Écrans
- captures d'écrans dans le dossier `/screenshots/`
+## Captures d'Écran Obligatoires (Partie 6.3 du TP)
+
+Les captures suivantes sont disponibles dans le dossier `/screenshots/` :
+1. **Services Up et Healthy** : `docker-compose ps` montrant tous les services.
+2. **Réseaux** : `docker network ls` montrant `frontend-net` et `backend-net`.
+3. **Volumes** : `docker volume ls` montrant `taskmanager-data`.
+4. **Limites de Ressources** : `docker stats` montrant les contraintes appliquées.
+5. **Interface Frontend** : La page d'accueil avec les tâches.
+6. **Ajout de Données** : Screenshot après avoir créé une nouvelle tâche.
+7. **Logs de Connexion** : `docker-compose logs backend` montrant la réussite de la connexion DB.
+8. **Isolation Réseau** : Échec du ping/curl depuis le frontend vers la database.
+9. **Health Check Status** : `docker inspect` montrant le statut détaillé.
+10. **Comparaison Multi-stage** : Note sur l'optimisation de la taille des images.
+
+## Commandes Utiles
+
+- **Démarrage** : `docker-compose up -d --build`
+- **Arrêt** : `docker-compose down`
+- **Logs** : `docker-compose logs -f [service]`
+- **Statistiques** : `docker stats`

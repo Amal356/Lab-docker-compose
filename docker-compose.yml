@@ -1,0 +1,82 @@
+# Ce fichier est configuré pour un usage étudiant flexible.
+# Vous pouvez soit utiliser le service 'database' inclus ci-dessous,
+# soit connecter votre propre base de données locale (PC) en modifiant 
+# la variable DATABASE_URL dans le fichier .env (voir README.md).
+
+services:
+  # Service de base de données (optionnel si vous utilisez celle de votre PC)
+  database:
+    image: postgres:15-alpine
+    container_name: task_db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-taskmanager}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    volumes:
+      - task-db-data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - backend-net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: task_backend
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgres://postgres:postgres@database:5432/taskmanager}
+      - PORT=5000
+    # On laisse database en option, le backend attendra qu'elle soit prête si elle est utilisée
+    networks:
+      - frontend-net
+      - backend-net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        - VITE_API_URL=
+    container_name: task_frontend
+    ports:
+      - "8080:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - frontend-net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+    restart: unless-stopped
+
+networks:
+  frontend-net:
+    driver: bridge
+  backend-net:
+    driver: bridge
+
+volumes:
+  task-db-data:
+    driver: local

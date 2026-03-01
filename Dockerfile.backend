@@ -1,0 +1,36 @@
+# Stage 1 - Builder
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+# Construction de l'application (génère dist/ pour le backend et le frontend)
+RUN npm run build
+
+# Stage 2 - Production
+FROM node:20-alpine
+WORKDIR /app
+
+# Copie des fichiers package.json pour l'installation des dépendances de prod
+COPY --from=builder /app/package*.json ./
+RUN npm ci --omit=dev
+
+# Copie de l'artefact compilé du backend
+COPY --from=builder /app/dist ./dist
+
+# Création d'un utilisateur non-root
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+USER appuser
+
+# Variables d'environnement
+ENV NODE_ENV=production
+ENV PORT=5000
+
+EXPOSE 5000
+
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:5000/health || exit 1
+
+# Démarrage de l'application
+CMD ["node", "dist/index.cjs"]
